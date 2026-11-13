@@ -1,4 +1,3 @@
-import functools
 import html
 import time
 from dataclasses import dataclass
@@ -9,43 +8,114 @@ import streamlit as st
 from pydantic import BaseModel, Field
 from spacy import displacy
 
-st.set_page_config(page_title="L2-SyntaxLens", page_icon="🔎", layout="wide")
+st.set_page_config(page_title="SyntaxLens — UD Morphosyntactic Diagnostics", page_icon="⊢", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap');
-h1, h2, h3 { font-family: 'Source Serif 4', Georgia, serif !important; letter-spacing: -0.01em; }
-.sent { font-family: 'Source Serif 4', Georgia, serif; font-size: 1.45rem; line-height: 1.7;
-        padding: 18px 22px; background: rgba(128,128,128,0.10); border: 1px solid rgba(128,128,128,0.35); border-radius: 6px; }
-.sent mark { background: rgba(251,146,60,0.30); color: inherit; padding: 1px 4px; border-bottom: 2px solid #fb923c; border-radius: 2px; }
-.issue { background: rgba(128,128,128,0.10); border: 1px solid rgba(128,128,128,0.35); border-left: 4px solid #fb923c;
-         padding: 14px 18px; border-radius: 4px; margin-bottom: 10px; }
-.issue .meta { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; opacity: .65; }
-.issue .title { font-weight: 600; font-size: 1.02rem; margin: 2px 0 8px; }
-.issue code { font-family: 'JetBrains Mono', monospace; font-size: .85rem; background: rgba(128,128,128,0.22); padding: 1px 6px; border-radius: 3px; }
-.issue .why { opacity: .85; font-size: .88rem; margin-top: 8px; }
-table.tok { width: 100%; border-collapse: collapse; font-size: .88rem; }
-table.tok th { text-align: left; background: rgba(128,128,128,0.18); padding: 6px 10px; border-bottom: 1px solid rgba(128,128,128,0.35); }
-table.tok td { padding: 5px 10px; border-bottom: 1px solid rgba(128,128,128,0.25); font-family: 'JetBrains Mono', monospace; }
-.ok { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.5); padding: 12px 16px; border-radius: 4px; }
-.trace { font-family: 'JetBrains Mono', monospace; font-size: .82rem; background: #1c1917; color: #e7e5e4;
-         padding: 16px; border-radius: 6px; white-space: pre-wrap; }
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+.stApp { background-color: #f7f8fc !important; color: #0f172a !important; }
+html, body, [class*="css"] {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+#MainMenu, header, footer { visibility: hidden; }
+.block-container { padding-top: 1.5rem !important; max-width: 1020px !important; }
+
+/* Minimal Top Bar (Indigo / Cobalt Theme) */
+.sl-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px; background: #ffffff;
+    border: 1px solid #e2e6f3; border-radius: 12px;
+    margin-bottom: 40px;
+}
+.sl-brand {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'Outfit', sans-serif; font-weight: 700;
+    font-size: 1.22rem; color: #0f172a; letter-spacing: -0.02em;
+}
+.sl-glyph {
+    font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 0.92rem;
+    color: #4338ca; background: #e0e7ff; border: 1px solid #c7d2fe;
+    padding: 2px 8px; border-radius: 7px;
+}
+.sl-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.76rem;
+    padding: 4px 10px; border-radius: 6px; color: #475569; background: #f1f4fb;
+}
+
+/* Clean Hero */
+.sl-hero { text-align: center; margin: 0 auto 32px; max-width: 680px; }
+.sl-hero h1 {
+    font-family: 'Outfit', sans-serif !important;
+    font-size: 2.9rem !important; font-weight: 800 !important;
+    line-height: 1.1 !important; letter-spacing: -0.035em !important;
+    color: #0f172a !important; margin-bottom: 10px;
+}
+.sl-accent { color: #4f46e5; }
+.sl-sub { font-size: 1rem; color: #64748b; font-weight: 400; }
+
+/* KPI Cards */
+.sl-kpi {
+    background: #ffffff; border: 1px solid #e2e6f3; border-radius: 12px;
+    padding: 14px 18px;
+}
+.sl-kpi-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
+.sl-kpi-val { font-family: 'Outfit', sans-serif; font-size: 1.4rem; font-weight: 700; color: #0f172a; margin-top: 3px; }
+.sl-kpi-val.accent { color: #4f46e5; }
+.sl-kpi-val.ok { color: #16a34a; }
+
+/* Dark Utterance Inspection Console */
+.sl-shell {
+    background: #ffffff; border: 1px solid #e2e6f3; border-radius: 14px;
+    padding: 18px 20px; margin: 18px 0 24px;
+}
+.sl-shell-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px; font-size: 0.82rem; color: #64748b;
+}
+.sl-shell-head b { color: #0f172a; font-size: 0.88rem; }
+
+.sl-dark-window {
+    background: #0c1021; color: #e2e8f0; border-radius: 10px;
+    padding: 20px 22px; font-family: 'JetBrains Mono', monospace;
+    font-size: 0.96rem; line-height: 1.85;
+}
+.sl-dark-window mark {
+    background: rgba(244, 63, 94, 0.25); color: #fecdd3;
+    padding: 2px 6px; border-radius: 4px; border-bottom: 2px solid #f43f5e;
+}
+
+/* Issue Cards */
+.issue {
+    background: #ffffff; border: 1px solid #e2e6f3; border-left: 4px solid #4f46e5;
+    padding: 14px 18px; border-radius: 10px; margin-bottom: 10px;
+}
+.issue .meta { font-family: 'JetBrains Mono', monospace; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: #4f46e5; font-weight: 600; }
+.issue .title { font-weight: 600; font-size: 1rem; margin: 4px 0 8px; color: #0f172a; }
+.issue code { font-family: 'JetBrains Mono', monospace; font-size: .85rem; background: #f1f4fb; color: #1e1b4b; padding: 2px 7px; border-radius: 4px; }
+.issue .why { color: #475569; font-size: .88rem; margin-top: 6px; }
+.ok-box { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 14px 18px; border-radius: 10px; font-weight: 500; }
+
+table.tok { width: 100%; border-collapse: collapse; font-size: .86rem; background: #fff; border: 1px solid #e2e6f3; border-radius: 10px; overflow: hidden; }
+table.tok th { text-align: left; background: #f8fafc; padding: 9px 12px; border-bottom: 1px solid #e2e6f3; font-weight: 600; color: #334155; }
+table.tok td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; font-family: 'JetBrains Mono', monospace; color: #0f172a; }
+.trace { font-family: 'JetBrains Mono', monospace; font-size: .82rem; background: #0c1021; color: #c7d2fe; padding: 16px; border-radius: 10px; white-space: pre-wrap; }
 </style>
 """, unsafe_allow_html=True)
 
 L1_NOTES = {
-    "SVA": "Turkish verbs agree with the subject in person, but there is no zero/-s contrast for 3rd person singular, and plural marking on the subject is often optional, so the English -s may be omitted or misplaced.",
-    "PREP": "Turkish expresses these relations with case suffixes (-e, -den, -de) and postpositions, so English verb–preposition pairings must be memorised and are often mapped from the Turkish case.",
-    "TENSE": "Turkish verbs carry an obligatory tense suffix; the learner may rely on the time adverb and leave the English verb uninflected.",
-    "PERF": "Turkish has no direct present-perfect equivalent with the same adverb restrictions, so 'have + V-ed' may be combined with definite past time adverbs.",
-    "DOSUP": "Turkish negation is a verbal suffix (-me) and has no auxiliary 'do', so learners may inflect the lexical verb instead of the auxiliary.",
-    "NEG": "Turkish uses negative concord (e.g. 'hiçbir şey yazmadı': negative word + negative verb), which is transferred to English.",
-    "COUNT": "Turkish equivalents such as 'bilgi' and 'tavsiye' can be pluralised ('bilgiler', 'tavsiyeler'), so the English mass-noun restriction is not intuitive.",
-    "ADJ": "Turkish has no strictly taught size–age–colour–material order, so learners lack a native template.",
-    "ART": "Turkish has no definite article and the a/an alternation (sound-based) has no counterpart.",
-    "DCOMP": "Turkish forms comparatives analytically with 'daha' + adjective; generalising 'more + adjective' to already comparative English forms is a common overgeneralisation.",
-    "SINCEFOR": "Turkish 'beri' / '-dır' cover both point-in-time and duration readings (e.g. 'üç yıldır', '2020'den beri'), so 'since' and 'for' are conflated.",
-    "NUMPL": "In Turkish, nouns stay singular after numerals ('üç kardeş'), which is transferred to English.",
+    "SVA": "Turkish verbs agree in person without a distinct 3sg -s contrast, and subjects after numerals/plurals often omit overt plural agreement.",
+    "PREP": "Turkish encodes spatial/relational arguments via case suffixes (-e, -den, -de) rather than idiosyncratic verb–preposition pairings.",
+    "TENSE": "Turkish learners may rely on the deictic time adverbial alone and leave the English finite verb uninflected.",
+    "PERF": "Turkish lacks a present-perfect form that blocks definite past time adverbs (*yesterday*, *last week*).",
+    "DOSUP": "Turkish negation is a verbal suffix (-me/-ma) with no auxiliary *do*, leading to double inflection on the main verb.",
+    "NEG": "Turkish requires negative concord (*hiçbir şey yazmadı*), which is frequently transferred into English clauses.",
+    "COUNT": "Turkish equivalents (*bilgiler*, *tavsiyeler*, *ödevler*) grammaticalize plural inflection freely.",
+    "ADJ": "Turkish does not enforce the strict English size → age → colour → material prenominal hierarchy.",
+    "ART": "Turkish has no definite article and does not alternate indefinite determiners phonologically (*a/an*).",
+    "DCOMP": "Turkish forms comparatives analytically with *daha* + adjective, encouraging *more + -er* overgeneralisation.",
+    "SINCEFOR": "Turkish *beri / -dır* spans both point-in-time and duration readings.",
+    "NUMPL": "Turkish nouns remain morphologically singular after cardinal numerals (*üç kardeş* → *three brother*).",
 }
 
 
@@ -330,61 +400,84 @@ def highlighted(doc, issues: List[Issue]) -> str:
     return "".join(out)
 
 
+# ---------- Minimal Top Bar & Hero ----------
+st.markdown("""
+<div class="sl-nav">
+  <div class="sl-brand"><span class="sl-glyph">⟦⊢⟧</span> SyntaxLens</div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span class="sl-tag">Universal Dependencies · 12 Rules</span>
+    <span class="sl-tag">Held-out F1: 0.92</span>
+  </div>
+</div>
+
+<div class="sl-hero">
+  <h1>Morphosyntactic diagnostics<span class="sl-accent">.</span></h1>
+  <div class="sl-sub">Deterministic L2 error detection over dependency parse trees with Turkish L1 transfer notes.</div>
+</div>
+""", unsafe_allow_html=True)
+
 PRESETS = {
-    "Subject–verb agreement": "He go to the university library every afternoon.",
-    "Plural subject": "The students goes to class and the teachers is late.",
-    "Mass noun": "The professor gave us many useful informations.",
-    "Adjective order": "She bought a red big backpack yesterday.",
-    "Preposition": "Many students depend of their family for tuition.",
-    "Tense clash": "She writes an academic essay yesterday.",
-    "Do-support": "The applicant does not has enough credits.",
-    "Double negation": "The student didn't write nothing during the lecture.",
-    "Article": "He is an university student and wants a answer.",
-    "Double comparative": "This exam is more easier than the last one.",
-    "Since / for": "I have lived here since three years.",
-    "Numeral + plural": "She has three brother and two sister.",
-    "Perfect + past adverb": "I have seen him yesterday.",
-    "Multi-sentence": "She don't like coffee. They was happy last week. I discussed about the plan.",
-    "Well-formed": "The researcher depends on primary data and gathered significant evidence.",
+    "Subject–verb agreement (SVA)": "He go to the university library every afternoon.",
+    "Plural subject concord (SVA)": "The students goes to class and the teachers is late.",
+    "Mass noun pluralization (COUNT)": "The professor gave us many useful informations.",
+    "Adjective hierarchy (ADJ)": "She bought a red big backpack yesterday.",
+    "Preposition collocation (PREP)": "Many students depend of their family for tuition.",
+    "Past adverbial tense clash (TENSE)": "She writes an academic essay yesterday.",
+    "Do-support double marking (DOSUP)": "The applicant does not has enough credits.",
+    "Negative concord (NEG)": "The student didn't write nothing during the lecture.",
+    "Phonological article (ART)": "He is an university student and wants a answer.",
+    "Double comparative (DCOMP)": "This exam is more easier than the last one.",
+    "Point vs. duration (SINCEFOR)": "I have lived here since three years.",
+    "Numeral + singular noun (NUMPL)": "She has three brother and two sister.",
+    "Present perfect + past adverb (PERF)": "I have seen him yesterday.",
+    "Multi-sentence diagnostic": "She don't like coffee. They was happy last week. I discussed about the plan.",
+    "Well-formed control sentence": "The researcher depends on primary data and gathered significant evidence.",
 }
 
-with st.sidebar:
-    st.markdown("### L2-SyntaxLens")
-    st.caption("Rule-based diagnostics for L2 English, built on Universal Dependencies.")
-    preset = st.selectbox("Example sentences", list(PRESETS))
-    show_l1 = st.checkbox("Show possible Turkish (L1) transfer notes", value=True)
-    st.caption("Held-out eval (n=60): P 0.92 · R 0.91 · F1 0.92")
-    st.markdown("**Rules**")
-    for rid, cat, fn in RULES:
-        st.markdown(f"- `{rid}` · {cat}")
+col_p, col_l1 = st.columns([2.2, 1])
+with col_p:
+    preset = st.selectbox("Sample", list(PRESETS))
+with col_l1:
+    st.write("")
+    show_l1 = st.checkbox("Turkish (L1) transfer notes", value=True)
 
-st.title("L2-SyntaxLens")
-st.caption("Paste learner text. Every flag is traceable to a dependency relation and an explicit rule.")
-
-text = st.text_area("Learner text", value=PRESETS[preset], height=110, key=f"in_{preset}")
+text = st.text_area("Learner text", value=PRESETS[preset], height=90, label_visibility="collapsed")
 
 if text.strip():
     report, doc = analyze(text.strip())
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Sentences", report.sentence_count)
-    c2.metric("Issues", report.issue_count)
-    c3.metric("Latency", f"{report.latency_ms} ms")
+    status_txt = "Well-Formed" if report.issue_count == 0 else f"{report.issue_count} Flagged"
+    status_cls = "ok" if report.issue_count == 0 else "accent"
 
-    st.markdown(f'<div class="sent">{highlighted(doc, report.issues)}</div>', unsafe_allow_html=True)
-    st.write("")
+    k1, k2, k3, k4 = st.columns(4)
+    k1.markdown(f'<div class="sl-kpi"><div class="sl-kpi-label">Status</div><div class="sl-kpi-val {status_cls}">{status_txt}</div></div>', unsafe_allow_html=True)
+    k2.markdown(f'<div class="sl-kpi"><div class="sl-kpi-label">Sentences</div><div class="sl-kpi-val">{report.sentence_count}</div></div>', unsafe_allow_html=True)
+    k3.markdown(f'<div class="sl-kpi"><div class="sl-kpi-label">Tokens</div><div class="sl-kpi-val">{len(doc)}</div></div>', unsafe_allow_html=True)
+    k4.markdown(f'<div class="sl-kpi"><div class="sl-kpi-label">Latency</div><div class="sl-kpi-val">{report.latency_ms} ms</div></div>', unsafe_allow_html=True)
 
-    tab_d, tab_t, tab_k, tab_j, tab_l = st.tabs(["Diagnostics", "Dependency tree", "Tokens", "JSON", "Trace"])
+    st.markdown(f"""
+    <div class="sl-shell">
+      <div class="sl-shell-head">
+        <b>Utterance Inspection</b>
+        <span>Highlighted tokens trigger a dependency rule violation</span>
+      </div>
+      <div class="sl-dark-window">
+        {highlighted(doc, report.issues)}
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    tab_d, tab_t, tab_k, tab_j, tab_l = st.tabs(["Diagnostics", "Dependency Tree", "Tokens (UD)", "JSON Schema", "Execution Trace"])
 
     with tab_d:
         if not report.issues:
-            st.markdown('<div class="ok">No violations found within the modelled rules.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="ok-box">✓ No violations found within the 12 modelled grammatical constraints.</div>', unsafe_allow_html=True)
         for iss in report.issues:
-            l1_html = (f'<div class="why"><b>Possible L1 (Turkish) transfer:</b> {html.escape(iss.l1_note)}</div>'
+            l1_html = (f'<div class="why"><b>L1 (Turkish) transfer:</b> {html.escape(iss.l1_note)}</div>'
                        if show_l1 and iss.l1_note else "")
             st.markdown(f"""
             <div class="issue">
-              <div class="meta">{html.escape(iss.category)} · {iss.rule_id} · sentence {iss.sentence_index + 1}</div>
+              <div class="meta">{html.escape(iss.category)} · {iss.rule_id} · Sentence {iss.sentence_index + 1}</div>
               <div class="title"><code>{html.escape(iss.focus)}</code> → <code>{html.escape(iss.fix)}</code></div>
               <div class="why">{html.escape(iss.explanation)}</div>
               {l1_html}
@@ -393,9 +486,9 @@ if text.strip():
     with tab_t:
         for sent in doc.sents:
             svg = displacy.render(sent.as_doc(), style="dep",
-                                  options={"compact": True, "distance": 105, "bg": "transparent",
-                                           "color": "inherit", "font": "JetBrains Mono"})
-            st.markdown(f'<div style="overflow-x:auto">{svg.replace(chr(10), "")}</div>',
+                                  options={"compact": True, "distance": 105, "bg": "#ffffff",
+                                           "color": "#0f172a", "font": "JetBrains Mono"})
+            st.markdown(f'<div style="overflow-x:auto;background:#ffffff;border:1px solid #e2e6f3;border-radius:10px;padding:12px;">{svg.replace(chr(10), "")}</div>',
                         unsafe_allow_html=True)
 
     with tab_k:
@@ -412,6 +505,9 @@ if text.strip():
         payload = report.model_dump_json(indent=2)
         st.download_button("Download JSON", payload, "syntaxlens_report.json", "application/json")
         st.code(payload, language="json")
+
+    with tab_l:
+        st.markdown(f'<div class="trace">{html.escape(chr(10).join(report.trace))}</div>', unsafe_allow_html=True)
 
     with tab_l:
         st.markdown(f'<div class="trace">{html.escape(chr(10).join(report.trace))}</div>', unsafe_allow_html=True)
