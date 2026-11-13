@@ -434,12 +434,12 @@ PRESETS = {
     "Well-formed control sentence": "The researcher depends on primary data and gathered significant evidence.",
 }
 
-col_p, col_l1 = st.columns([2.2, 1])
+col_p, col_l1 = st.columns([2, 1])
 with col_p:
     preset = st.selectbox("Sample", list(PRESETS))
 with col_l1:
-    st.write("")
-    show_l1 = st.checkbox("Turkish (L1) transfer notes", value=True)
+    l1_mode = st.selectbox("Contrastive L1 Notes", ["Turkish (L1) · Enabled", "Disabled"])
+    show_l1 = l1_mode.startswith("Turkish")
 
 text = st.text_area("Learner text", value=PRESETS[preset], height=90, label_visibility="collapsed")
 
