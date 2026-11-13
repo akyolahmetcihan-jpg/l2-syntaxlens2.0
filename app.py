@@ -507,4 +507,4 @@ if text.strip():
 
     with tab_l:
         st.markdown(f'<div class="trace">{html.escape(chr(10).join(report.trace))}</div>', unsafe_allow_html=True)
-```+] pitted against each other.
+
