@@ -446,11 +446,10 @@ text = st.text_area("Learner text", value=PRESETS[preset], height=90, label_visi
 if text.strip():
     report, doc = analyze(text.strip())
 
-    status_txt = "Well-Formed" if report.issue_count == 0 else f"{report.issue_count} Flagged"
     status_cls = "ok" if report.issue_count == 0 else "accent"
 
     k1, k2, k3, k4 = st.columns(4)
-    k1.markdown(f'<div class="sl-kpi"><div class="sl-kpi-label">Status</div><div class="sl-kpi-val {status_cls}">{status_txt}</div></div>', unsafe_allow_html=True)
+    k1.markdown(f'<div class="sl-kpi"><div class="sl-kpi-label">Issues Found</div><div class="sl-kpi-val {status_cls}">{report.issue_count}</div></div>', unsafe_allow_html=True)
     k2.markdown(f'<div class="sl-kpi"><div class="sl-kpi-label">Sentences</div><div class="sl-kpi-val">{report.sentence_count}</div></div>', unsafe_allow_html=True)
     k3.markdown(f'<div class="sl-kpi"><div class="sl-kpi-label">Tokens</div><div class="sl-kpi-val">{len(doc)}</div></div>', unsafe_allow_html=True)
     k4.markdown(f'<div class="sl-kpi"><div class="sl-kpi-label">Latency</div><div class="sl-kpi-val">{report.latency_ms} ms</div></div>', unsafe_allow_html=True)
@@ -508,6 +507,4 @@ if text.strip():
 
     with tab_l:
         st.markdown(f'<div class="trace">{html.escape(chr(10).join(report.trace))}</div>', unsafe_allow_html=True)
-
-    with tab_l:
-        st.markdown(f'<div class="trace">{html.escape(chr(10).join(report.trace))}</div>', unsafe_allow_html=True)
+```+] pitted against each other.
